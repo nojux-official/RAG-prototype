@@ -1,10 +1,14 @@
 import gradio as gr
 from ollama import Client
+from dotenv import load_dotenv
+import os
 
-# Initialize the ollama client
+# Load environment variables from .env file
+load_dotenv()
+
+# Initialize the ollama client with environment variables
 client = Client(
-    host='http://localhost:11434',
-    headers={}
+    host=os.getenv('HOST'),
 )
 
 def chatbot_response(user_input, history=[]):
