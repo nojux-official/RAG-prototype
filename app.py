@@ -1,8 +1,21 @@
 import gradio as gr
+from ollama import Client
+
+# Initialize the ollama client
+client = Client(
+    host='http://localhost:11434',
+    headers={}
+)
 
 def chatbot_response(user_input, history=[]):
-    # Simulate a bot response
-    bot_reply = "This is a simulated response."
+    # Use ollama to generate a response
+    response = client.chat(model='llama3.2', messages=[
+        {
+            'role': 'user',
+            'content': user_input,
+        },
+    ])
+    bot_reply = response['message']['content']
 
     # Update history
     history.append((user_input, bot_reply))
