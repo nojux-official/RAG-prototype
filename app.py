@@ -11,6 +11,15 @@ def list_files(directory):
 
 with gr.Blocks() as demo:
     file_explorer = gr.FileExplorer(label="Browse Files", root_dir=".", file_count="multiple")
+
+    multiple_files = gr.Files(
+        label="Upload Multiple Files",
+        file_count="multiple",
+        type="filepath",
+        file_types=[".pdf"]
+        )
+
     file_explorer.change(fn=list_files, inputs=file_explorer)
 
 demo.launch()
+
