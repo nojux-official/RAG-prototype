@@ -1,3 +1,4 @@
+from lib.embeddings import update_vault
 import gradio as gr
 import os
 import shutil
@@ -45,6 +46,8 @@ with gr.Blocks() as demo:
         file_types=[".pdf"]
     )
 
+    cache_update_button = gr.Button("Update file cache")
+
 
     # Handle file uploads and update file explorer
     multiple_files.change(
@@ -57,6 +60,8 @@ with gr.Blocks() as demo:
         fn=list_files,
         inputs=gr.State(UPLOAD_DIR)
     )
+
+    cache_update_button.click(fn=update_vault)
 
 if __name__ == "__main__":
     os.makedirs(UPLOAD_DIR, exist_ok=True)
