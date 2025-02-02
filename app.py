@@ -7,6 +7,8 @@ from openai import OpenAI
 import torch
 from sentence_transformers import SentenceTransformer, util
 
+UPLOAD_DIR = "./uploads"
+
 # ANSI escape codes for colors
 PINK = '\033[95m'
 CYAN = '\033[96m'
@@ -81,17 +83,7 @@ def ollama_chat(user_input, system_message, vault_embeddings, vault_content, mod
     # Return the content of the response from the model
     return response.choices[0].message.content
 
-def chatbot_response(user_input, history=[]):
 
-    system_message = "You are a helpful assistant that is an expert at extracting the most useful information from a given text"
-    response = ollama_chat(user_input, system_message, vault_embeddings_tensor, vault_content, model, "llama3")
-
-    bot_reply = response
-
-    # Update history
-    history.append((user_input, bot_reply))
-
-    return bot_reply, history
 
 
 # Function to handle file uploads and copy them to the target directory
@@ -118,38 +110,6 @@ def list_files(directory):
         return str(e)
 
 
-UPLOAD_DIR = "./uploads"
-
-# Configuration for the Ollama API client
-client = OpenAI(
-    base_url=os.getenv('HOST')+'/v1',
-    api_key='llama3'
-)
-#
-# Load the model and vault content
-model = SentenceTransformer("all-MiniLM-L6-v2")
-vault_content = []
-if os.path.exists("vault.txt"):
-    with open("vault.txt", "r", encoding='utf-8') as vault_file:
-        vault_content = vault_file.readlines()
-vault_embeddings = model.encode(vault_content) if vault_content else []
-
-# Convert to tensor and print embeddings
-vault_embeddings_tensor = torch.tensor(vault_embeddings)
-print("Embeddings for each line in the vault:")
-print(vault_embeddings_tensor)
-
-# while True:
-#     user_input = input(YELLOW + "Ask a question about your documents (or type 'quit' to exit): " + RESET_COLOR)
-#     if user_input.lower() == 'quit':
-#         break
-#
-#     response = ollama_chat(user_input, system_message, vault_embeddings_tensor, vault_content, model, args.model,
-#                            conversation_history)
-#     print(NEON_GREEN + "Response: \n\n" + response + RESET_COLOR)
-
-
-
 
 
 
@@ -161,7 +121,14 @@ with gr.Blocks() as demo:
 
 
     def respond(user_input, history):
-        bot_reply, history = chatbot_response(user_input, history)
+        system_message = "You are a helpful assistant that is an expert at extracting the most useful information from a given text"
+        response = ollama_chat(user_input, system_message, vault_embeddings_tensor, vault_content, model, "llama3")
+
+        bot_reply = response
+
+        # Update history
+        history.append((user_input, bot_reply))
+
         return history, history
 
 
@@ -201,4 +168,24 @@ with gr.Blocks() as demo:
 
 if __name__ == "__main__":
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+    # Configuration for the Ollama API client
+    client = OpenAI(
+        base_url=os.getenv('HOST') + '/v1',
+        api_key='llama3'
+    )
+    #
+    # Load the model and vault content
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    vault_content = []
+    if os.path.exists("vault.txt"):
+        with open("vault.txt", "r", encoding='utf-8') as vault_file:
+            vault_content = vault_file.readlines()
+    vault_embeddings = model.encode(vault_content) if vault_content else []
+
+    # Convert to tensor and print embeddings
+    vault_embeddings_tensor = torch.tensor(vault_embeddings)
+    print("Embeddings for each line in the vault:")
+    print(vault_embeddings_tensor)
+
     demo.launch()

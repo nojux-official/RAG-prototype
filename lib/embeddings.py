@@ -1,8 +1,6 @@
 import os
-
 import PyPDF2
 import re
-import json
 
 
 # Function to convert PDF to text and append to vault.txt
@@ -44,7 +42,8 @@ import os
 
 
 def update_vault(wd="."):
-    os.remove(os.path.join(wd, "vault.txt"))
+    if os.path.exists(os.path.join(wd, "vault.txt")):
+        os.remove(os.path.join(wd, "vault.txt"))
 
     upload_dir = os.path.join(wd, "uploads")
     if not os.path.exists(upload_dir):
