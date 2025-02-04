@@ -1,11 +1,13 @@
+from lib.embeddings import update_vault
+import shutil
 import gradio as gr
-from langchain.schema import SystemMessage, HumanMessage, AIMessage
-from langchain_community.chat_models import ChatOllama
 from dotenv import load_dotenv
 import os
 from openai import OpenAI
 import torch
 from sentence_transformers import SentenceTransformer, util
+
+UPLOAD_DIR = "./uploads"
 
 # ANSI escape codes for colors
 PINK = '\033[95m'
@@ -19,7 +21,6 @@ load_dotenv()
 # Initialize chat history with a system message
 # system_message = SystemMessage(content="You are a helpful AI assistant.")
 chat_history = []
-
 
 
 # Function to open a file and return its contents as a string
@@ -85,62 +86,106 @@ def ollama_chat(user_input, system_message, vault_embeddings, vault_content, mod
 
 
 
-# Configuration for the Ollama API client
-client = OpenAI(
-    base_url=os.getenv('HOST')+'/v1',
-    api_key='llama3'
-)
-#
-# Load the model and vault content
-model = SentenceTransformer("all-MiniLM-L6-v2")
-vault_content = []
-if os.path.exists("vault.txt"):
-    with open("vault.txt", "r", encoding='utf-8') as vault_file:
-        vault_content = vault_file.readlines()
-vault_embeddings = model.encode(vault_content) if vault_content else []
+# Function to handle file uploads and copy them to the target directory
+def handle_files(files, directory):
+    try:
+        os.makedirs(directory, exist_ok=True)
 
-# Convert to tensor and print embeddings
-vault_embeddings_tensor = torch.tensor(vault_embeddings)
-print("Embeddings for each line in the vault:")
-print(vault_embeddings_tensor)
+        for file_path in files:
+            filename = os.path.basename(file_path)
+            destination = os.path.join(directory, filename)
+            shutil.copy2(file_path, destination)
 
-# while True:
-#     user_input = input(YELLOW + "Ask a question about your documents (or type 'quit' to exit): " + RESET_COLOR)
-#     if user_input.lower() == 'quit':
-#         break
-#
-#     response = ollama_chat(user_input, system_message, vault_embeddings_tensor, vault_content, model, args.model,
-#                            conversation_history)
-#     print(NEON_GREEN + "Response: \n\n" + response + RESET_COLOR)
+        return list_files(directory)
+    except Exception as e:
+        return str(e)
 
 
-def chatbot_response(user_input, history=[]):
-
-    system_message = "You are a helpful assistant that is an expert at extracting the most useful information from a given text"
-    response = ollama_chat(user_input, system_message, vault_embeddings_tensor, vault_content, model, "llama3")
-
-    bot_reply = response
-
-    # Update history
-    history.append((user_input, bot_reply))
-
-    return bot_reply, history
+# Function to list files in a directory
+def list_files(directory):
+    try:
+        files = os.listdir(directory)
+        return sorted(files)  # Sort files for better readability
+    except Exception as e:
+        return str(e)
 
 
-# Gradio UI Setup
-def gradio_interface():
-    with gr.Blocks() as chatbot_ui:
-        gr.Markdown("## LangChain with Ollama Chatbot")
-        user_input = gr.Textbox(label="User Input", placeholder="Type your message here...", lines=2)
-        chat_history = gr.Chatbot()
-        send_button = gr.Button("Send")
 
-        def respond(user_input, history):
-            bot_reply, history = chatbot_response(user_input, history)
-            return history, history
 
-        send_button.click(respond, [user_input, chat_history], [chat_history, chat_history])
 
-    chatbot_ui.launch()
+with gr.Blocks() as demo:
+    gr.Markdown("## LangChain with Ollama Chatbot")
+    user_input = gr.Textbox(label="User Input", placeholder="Type your message here...", lines=2)
+    chat_history = gr.Chatbot()
+    send_button = gr.Button("Send")
 
-gradio_interface()
+
+    def respond(user_input, history):
+        system_message = "You are a helpful assistant that is an expert at extracting the most useful information from a given text"
+        response = ollama_chat(user_input, system_message, vault_embeddings_tensor, vault_content, model, "llama3")
+
+        bot_reply = response
+
+        # Update history
+        history.append((user_input, bot_reply))
+
+        return history, history
+
+
+    send_button.click(respond, [user_input, chat_history], [chat_history, chat_history])
+
+    # File explorer component
+    file_explorer = gr.FileExplorer(
+        label="Browse Files",
+        root_dir=UPLOAD_DIR,
+        file_count="multiple"
+    )
+
+    # File upload component
+    multiple_files = gr.Files(
+        label="Upload Multiple Files",
+        file_count="multiple",
+        type="filepath",
+        file_types=[".pdf"]
+    )
+
+    cache_update_button = gr.Button("Update file cache")
+
+
+    # Handle file uploads and update file explorer
+    multiple_files.change(
+        fn=handle_files,
+        inputs=[multiple_files, gr.State(UPLOAD_DIR)]
+    )
+
+    # Update file list when file explorer changes
+    file_explorer.change(
+        fn=list_files,
+        inputs=gr.State(UPLOAD_DIR)
+    )
+
+    cache_update_button.click(fn=update_vault)
+
+if __name__ == "__main__":
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+    # Configuration for the Ollama API client
+    client = OpenAI(
+        base_url=os.getenv('HOST') + '/v1',
+        api_key='llama3'
+    )
+    #
+    # Load the model and vault content
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    vault_content = []
+    if os.path.exists("vault.txt"):
+        with open("vault.txt", "r", encoding='utf-8') as vault_file:
+            vault_content = vault_file.readlines()
+    vault_embeddings = model.encode(vault_content) if vault_content else []
+
+    # Convert to tensor and print embeddings
+    vault_embeddings_tensor = torch.tensor(vault_embeddings)
+    print("Embeddings for each line in the vault:")
+    print(vault_embeddings_tensor)
+
+    demo.launch()
