@@ -1,4 +1,3 @@
-from lib.embeddings import update_vault
 import shutil
 import gradio as gr
 from dotenv import load_dotenv
@@ -6,6 +5,8 @@ import os
 from openai import OpenAI
 import torch
 from sentence_transformers import SentenceTransformer, util
+
+from lib.embeddings import convert_pdf_to_text
 
 UPLOAD_DIR = "./uploads"
 
@@ -27,6 +28,38 @@ chat_history = []
 def open_file(filepath):
     with open(filepath, 'r', encoding='utf-8') as infile:
         return infile.read()
+
+# Update the update_vault function to return updated values
+def update_vault(wd="."):
+    if os.path.exists(os.path.join(wd, "vault.txt")):
+        os.remove(os.path.join(wd, "vault.txt"))
+
+    upload_dir = os.path.join(wd, "uploads")
+    if not os.path.exists(upload_dir):
+        return [], torch.tensor([])
+
+    for root, _, files in os.walk(upload_dir):
+        for file in files:
+            if file.lower().endswith(".pdf"):
+                convert_pdf_to_text(os.path.join(root, file))
+
+    # TODO: FIX!
+    global vault_content, vault_embeddings, vault_embeddings_tensor
+
+
+    # Load the updated vault content
+    vault_content = []
+    if os.path.exists("vault.txt"):
+        with open("vault.txt", "r", encoding='utf-8') as vault_file:
+            vault_content = vault_file.readlines()
+
+    # Encode the updated vault content
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    vault_embeddings = model.encode(vault_content) if vault_content else []
+    vault_embeddings_tensor = torch.tensor(vault_embeddings)
+
+
+    return vault_content, vault_embeddings_tensor
 
 
 # Function to get relevant context from the vault based on user input
@@ -177,15 +210,7 @@ if __name__ == "__main__":
     #
     # Load the model and vault content
     model = SentenceTransformer("all-MiniLM-L6-v2")
-    vault_content = []
-    if os.path.exists("vault.txt"):
-        with open("vault.txt", "r", encoding='utf-8') as vault_file:
-            vault_content = vault_file.readlines()
-    vault_embeddings = model.encode(vault_content) if vault_content else []
+    vault_content, vault_embeddings_tensor = update_vault()
 
-    # Convert to tensor and print embeddings
-    vault_embeddings_tensor = torch.tensor(vault_embeddings)
-    print("Embeddings for each line in the vault:")
-    print(vault_embeddings_tensor)
 
     demo.launch()

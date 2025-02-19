@@ -41,18 +41,7 @@ def convert_pdf_to_text(file_path):
 import os
 
 
-def update_vault(wd="."):
-    if os.path.exists(os.path.join(wd, "vault.txt")):
-        os.remove(os.path.join(wd, "vault.txt"))
 
-    upload_dir = os.path.join(wd, "uploads")
-    if not os.path.exists(upload_dir):
-        return
-
-    for root, _, files in os.walk(upload_dir):
-        for file in files:
-            if file.lower().endswith(".pdf"):
-                convert_pdf_to_text(os.path.join(root, file))
 
 
 # Example usage
