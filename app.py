@@ -114,7 +114,7 @@ def ollama_chat(user_input, system_message, vault_embeddings, vault_content, mod
     conversation_history.append({"role": "assistant", "content": response.choices[0].message.content})
 
     # Return the content of the response from the model
-    return response.choices[0].message.content
+    return response.choices[0].message.content, context_str
 
 
 
@@ -155,12 +155,14 @@ with gr.Blocks() as demo:
 
     def respond(user_input, history):
         system_message = "You are a helpful assistant that is an expert at extracting the most useful information from a given text"
-        response = ollama_chat(user_input, system_message, vault_embeddings_tensor, vault_content, model, "llama3")
+        response, context_str = ollama_chat(user_input, system_message, vault_embeddings_tensor, vault_content, model, "llama3")
 
-        bot_reply = response
+        context_str = context_str if context_str else "No relevant context found."
+        context_str = '''-----> CONTEXT FROM DOCUMENTS <-----\n\n''' + context_str + '''\n\n-----> END OF CONTEXT <-----\n\n'''
 
         # Update history
-        history.append((user_input, bot_reply))
+        history.append((user_input, context_str))
+        history.append((None, response))
 
         return history, history
 
